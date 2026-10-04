@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { resolveConfig } from '../../config'
-import { transformWithOxc } from '../../plugins/oxc'
+import { oxcPlugin, transformWithOxc } from '../../plugins/oxc'
 
 describe('transformWithOxc', () => {
   test('correctly overrides TS configuration and applies automatic transform', async () => {
@@ -21,6 +21,35 @@ describe('transformWithOxc', () => {
     )
     expect(result?.code).toContain(`${jsxImportSource}/jsx-runtime`)
     expect(result?.code).toContain('/* @__PURE__ */')
+  })
+
+  test('preserves TypeScript for JSX-refresh virtual TSX modules', async () => {
+    const config = await resolveConfig(
+      {
+        root: import.meta.dirname,
+        configFile: false,
+        oxc: {
+          jsx: { runtime: 'automatic', refresh: true },
+          jsxRefreshInclude: /lang\.tsx$/,
+        },
+      },
+      'serve',
+    )
+    const plugin = oxcPlugin(config)
+    const transform = plugin.transform as Function
+
+    await expect(
+      transform.call(
+        {
+          environment: { mode: 'dev', config },
+          warn: () => {},
+        },
+        "import type { Props } from './types'\nconst value: Props = { n: 1 }",
+        '/tmp/App.vue?vue&type=script&setup=true&lang.tsx',
+      ),
+    ).resolves.toMatchObject({
+      code: expect.stringContaining('const value = { n: 1 }'),
+    })
   })
 
   test('correctly overrides TS configuration and preserves code', async () => {
