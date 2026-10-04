@@ -328,7 +328,7 @@ export function isFileLoadingAllowed(
 
   const hasDriveLetter = isWindows && windowsDriveRE.test(filePath)
   const hasColon = (hasDriveLetter ? filePath.slice(2) : filePath).includes(':')
-  if (hasColon) {
+  if (isWindows && hasColon) {
     // the `:` is included in the path which may be used for NTFS ADS
     return false
   }
@@ -339,6 +339,17 @@ export function isFileLoadingAllowed(
     ? filePath.slice(0, -1)
     : filePath
   if (config.fsDenyGlob(filePathWithoutTrailingSlash)) return false
+
+  if (!isWindows && hasColon) {
+    // A path on NTFS may use `:` to access an alternate data stream. Keep
+    // deny rules effective for the underlying file while allowing `:` in
+    // ordinary POSIX filenames.
+    const pathWithoutStreams = filePathWithoutTrailingSlash
+      .split('/')
+      .map((segment) => segment.split(':', 1)[0])
+      .join('/')
+    if (config.fsDenyGlob(pathWithoutStreams)) return false
+  }
 
   if (config.safeModulePaths.has(filePath)) return true
 

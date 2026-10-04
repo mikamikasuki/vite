@@ -7,6 +7,7 @@ const testIds = [
   'safe-subdir',
   'safe-subdir-special-characters',
   'safe-subdir-special-characters2',
+  'safe-colon-filename',
   'safe-imported',
   'safe-imported-query',
   'unsafe',

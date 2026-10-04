@@ -109,6 +109,12 @@ describe.runIf(isServe && !isBundledDev)('matrix', () => {
       status: '200',
     },
     {
+      name: 'safe fetch with colon in filename',
+      testId: 'safe-colon-filename',
+      content: /export const route = 'colon path'/,
+      status: '200',
+    },
+    {
       name: 'safe fetch imported',
       testId: 'safe-imported',
       content: safeJsonContent,

@@ -1,5 +1,19 @@
-import { describe, expect, test } from 'vitest'
-import { isFileInTargetPath, looksLikeWindowsShortNamePath } from '../static'
+import { describe, expect, test, vi } from 'vitest'
+import { isWindows } from '../../../../shared/utils'
+import type { ResolvedConfig } from '../../../config'
+import {
+  isFileInTargetPath,
+  isFileLoadingAllowed,
+  looksLikeWindowsShortNamePath,
+} from '../static'
+
+function createFsConfig(fsDenyGlob: (filePath: string) => boolean) {
+  return {
+    server: { fs: { strict: true, allow: ['/project'] } },
+    fsDenyGlob,
+    safeModulePaths: new Set<string>(),
+  } as unknown as ResolvedConfig
+}
 
 describe('isFileInTargetPath', () => {
   const cases = {
@@ -61,4 +75,27 @@ describe('looksLikeWindowsShortNamePath', () => {
       expect(looksLikeWindowsShortNamePath(filePath)).toBe(false)
     })
   }
+})
+
+describe('isFileLoadingAllowed', () => {
+  test.skipIf(isWindows)('allows colons in POSIX filenames', () => {
+    const config = createFsConfig(() => false)
+
+    expect(
+      isFileLoadingAllowed(config, '/project/src/route:name/index.js'),
+    ).toBe(true)
+  })
+
+  test.skipIf(isWindows)(
+    'checks NTFS alternate-stream paths against fs.deny without the stream suffix',
+    () => {
+      const fsDenyGlob = vi.fn(
+        (filePath: string) => filePath === '/project/.env',
+      )
+      const config = createFsConfig(fsDenyGlob)
+
+      expect(isFileLoadingAllowed(config, '/project/.env::$DATA')).toBe(false)
+      expect(fsDenyGlob).toHaveBeenCalledWith('/project/.env')
+    },
+  )
 })

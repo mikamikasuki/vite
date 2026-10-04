@@ -65,6 +65,11 @@
       testId: 'safe-subdir-special-characters2',
       path: '/root/src/special%20characters%20%C3%A5%C3%A4%C3%B6/safe.json',
     },
+    // Colon is a valid character in POSIX filenames.
+    {
+      testId: 'safe-colon-filename',
+      path: '/root/src/route:name/index.js',
+    },
     // imported before
     { testId: 'safe-imported', path: '/safe.json' },
     // imported before with query
