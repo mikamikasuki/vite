@@ -679,55 +679,65 @@ export function runOptimizeDeps(
       .build()
       .then((result) => {
         const depForEntryFileName: Record<string, OptimizedDepInfo> = {}
+        const depForEntryName: Record<string, OptimizedDepInfo> = {}
         for (const dep of Object.values(depsInfo)) {
-          const entryFileName = flattenId(dep.id) + '.js'
+          const entryName = flattenId(dep.id)
+          const entryFileName = entryName + '.js'
           depForEntryFileName[entryFileName] = dep
+          depForEntryName[entryName] = dep
         }
 
         for (const chunk of result.output) {
           if (chunk.type !== 'chunk') continue
 
           if (chunk.isEntry) {
-            const { exportsData, file, id, ...info } =
-              depForEntryFileName[chunk.fileName]
-            addOptimizedDepInfo(metadata, 'optimized', {
-              id,
-              file,
-              ...info,
-              // We only need to hash the chunk.imports in to check for stability, but adding the hash
-              // and file path gives us a unique hash that may be useful for other things in the future
-              fileHash: getHash(
-                metadata.hash + file + JSON.stringify(chunk.imports),
-              ),
-              browserHash: metadata.browserHash,
-              // After bundling we have more information and can warn the user about legacy packages
-              // that require manual configuration
-              needsInterop: needsInterop(
-                environment,
-                id,
-                idToExports[id],
-                chunk,
-              ),
-            })
-          } else {
-            const id = chunk.fileName.replace(jsExtensionRE, '')
-            const file = normalizePath(
-              path.resolve(getDepsCacheDir(environment), chunk.fileName),
-            )
-            if (
-              !findOptimizedDepInfoInRecord(
-                metadata.optimized,
-                (depInfo) => depInfo.file === file,
-              )
-            ) {
-              addOptimizedDepInfo(metadata, 'chunks', {
+            // Rolldown may add a numeric suffix to fileName when multiple entry
+            // chunks share a facade module. The chunk name remains the input key.
+            const dep =
+              depForEntryFileName[chunk.fileName] ?? depForEntryName[chunk.name]
+
+            if (dep && !metadata.optimized[dep.id]) {
+              const { exportsData, file, id, ...info } = dep
+              addOptimizedDepInfo(metadata, 'optimized', {
                 id,
                 file,
-                needsInterop: false,
+                ...info,
+                // We only need to hash the chunk.imports in to check for stability, but adding the hash
+                // and file path gives us a unique hash that may be useful for other things in the future
+                fileHash: getHash(
+                  metadata.hash + file + JSON.stringify(chunk.imports),
+                ),
                 browserHash: metadata.browserHash,
-                isDynamicEntry: chunk.isDynamicEntry,
+                // After bundling we have more information and can warn the user about legacy packages
+                // that require manual configuration
+                needsInterop: needsInterop(
+                  environment,
+                  id,
+                  idToExports[id],
+                  chunk,
+                ),
               })
+              continue
             }
+          }
+
+          const id = chunk.fileName.replace(jsExtensionRE, '')
+          const file = normalizePath(
+            path.resolve(getDepsCacheDir(environment), chunk.fileName),
+          )
+          if (
+            !findOptimizedDepInfoInRecord(
+              metadata.optimized,
+              (depInfo) => depInfo.file === file,
+            )
+          ) {
+            addOptimizedDepInfo(metadata, 'chunks', {
+              id,
+              file,
+              needsInterop: false,
+              browserHash: metadata.browserHash,
+              isDynamicEntry: chunk.isDynamicEntry,
+            })
           }
         }
 
